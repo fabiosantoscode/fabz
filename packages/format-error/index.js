@@ -1,6 +1,6 @@
 'use strict';
 
-const chalk = require('chalk')
+const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
 const leftPad = require('left-pad');
@@ -10,23 +10,25 @@ const sourcemap = require('source-map');
 
 function takeLines(code, centerLine, pad, extraLines = 1) {
   const lines = code.split(/\n/g);
-  centerLine--
-  return lines.slice(centerLine - extraLines, centerLine + 1).map((line, i) => (
-    chalk.gray(leftPad(i + 1 + ': ', pad)) + line
-  )).join('\n')
+  centerLine--;
+  return lines
+    .slice(centerLine - extraLines, centerLine + 1)
+    .map((line, i) => chalk.gray(leftPad(i + 1 + ': ', pad)) + line)
+    .join('\n');
 }
 
-function formatSecondaryStackLine({ functionName, fileName, lineNumber }) {
+function formatSecondaryStackLine({ functionName = '', fileName, lineNumber }) {
   const cwd = process.cwd();
-  const meths = functionName.split(/\./g)
-  const objects = meths.slice(0, -1)
-  const method = meths[meths.length - 1]
+  const meths = functionName.split(/\./g);
+  const objects = meths.slice(0, -1);
+  const method = meths[meths.length - 1];
   return (
     ' ! File ' +
     fileName.replace(cwd, '.') +
     chalk.gray(':' + lineNumber) +
     ' in ' +
-    objects.join('.') + ( objects.length ? '.' + chalk.blue(method) : '' )
+    (objects.join('.') + (objects.length ? '.' + chalk.blue(method) : '') ||
+      '<anonymous>')
   );
 }
 
@@ -87,18 +89,32 @@ function formatStack(e) {
   return [...smallFrames, ...largeFrames].join('\n') + '\n';
 }
 
-function formatError(e, pad = 5) {
+function formatError_(e, pad = 5) {
   const header = 'Traceback (most recent call last): \n';
-  let messageText = e.message
-  if (e.constructor.name === 'SyntaxError') {
+  let messageText = e.message;
+  if (e.constructor.name === 'SyntaxError' && e.code && e.loc) {
     const { loc, code, filename, stack, message } = e;
     const codeSample = takeLines(code, loc.line, pad);
-    const arrow = Array(loc.column + pad + 1).join(' ') + '^' + ' <- ' + message;
+    const arrow =
+      Array(loc.column + pad + 1).join(' ') + '^' + ' <- ' + message;
     const errorText = e.constructor.name + ' in file ' + filename;
 
-    messageText = [ codeSample, arrow, errorText].join('\n');
+    messageText = [codeSample, arrow, errorText].join('\n');
   }
-  return chalk.red(header) + formatStack(e) + messageText
+  return chalk.red(header) + formatStack(e) + messageText;
+}
+
+function formatError(e) {
+  try {
+    return formatError_(e);
+  } catch (x) {
+    return Object.assign(new Error(), e, {
+      message:
+        '(additionally, an error was caught while trying to format it: ' +
+        x.message +
+        ')',
+    });
+  }
 }
 
 module.exports = formatError;
