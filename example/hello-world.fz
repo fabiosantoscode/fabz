@@ -1,0 +1,6 @@
+
+console.log('hai')
+require './common'
+
+console.log('hello fabz!')
+
